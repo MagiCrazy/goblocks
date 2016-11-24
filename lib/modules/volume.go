@@ -2,14 +2,16 @@ package modules
 
 import (
 	"fmt"
-	"github.com/davidscholberg/go-i3barjson"
 	"os/exec"
-	"strings"
+	"regexp"
+
+	"github.com/davidscholberg/go-i3barjson"
 )
 
 // Volume represents the configuration for the volume display block.
 type Volume struct {
 	BlockConfigBase `yaml:",inline"`
+	MuteColor       string `yaml:"mute_color"`
 }
 
 // UpdateBlock updates the volume display block.
@@ -25,15 +27,14 @@ func (c Volume) UpdateBlock(b *i3barjson.Block) {
 		return
 	}
 	outStr := string(out)
-	iBegin := strings.Index(outStr, "[")
-	if iBegin == -1 {
+	re := regexp.MustCompile(`\[([0-9]+%)\]\s\[(on|off)\]`)
+	extractedInfo := re.FindAllStringSubmatch(outStr, 1)
+	if extractedInfo == nil {
 		b.FullText = fmt.Sprintf(fullTextFmt, "cannot parse amixer output")
 		return
 	}
-	iEnd := strings.Index(outStr, "]")
-	if iEnd == -1 {
-		b.FullText = fmt.Sprintf(fullTextFmt, "cannot parse amixer output")
-		return
+	if extractedInfo[0][2] == "off" {
+		b.Color = c.MuteColor
 	}
-	b.FullText = fmt.Sprintf(fullTextFmt, outStr[iBegin+1:iEnd])
+	b.FullText = fmt.Sprintf(fullTextFmt, extractedInfo[0][1])
 }
